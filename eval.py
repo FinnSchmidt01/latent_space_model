@@ -506,8 +506,8 @@ if __name__ == "__main__":
     # paths = ['models/[6,12]dim_no_brain_positions_pretrain_nodecoderbest.pth'] #model which assign latent feature vectors based on position
     # paths = ['models/baseline_sensorium_nobehaviorbest.pth'] #Poisson Model
     # paths = ['models/zig_best.pth'] #Pure ZIG model, no latent
-    # paths = ['models/latent_12dimbest.pth'] #latent model as in workshop paper, latent dim is 12
-    paths = ["models/250_200_200latentbest.pth"]
+    paths = ['models/latent_12dimbest.pth'] #latent model as in workshop paper, latent dim is 12
+
 
     for model_path in paths:
 
@@ -516,8 +516,8 @@ if __name__ == "__main__":
             2  # number of feature vectors after readout -> 2 for ZIG, 1 for Poisson
         )
         latent = True
-        # latent_dim = [42,20,12] #for low-dim latent model used in workshop paper
-        latent_dim = [250, 200, 200]  # for high-dim model
+        latent_dim = [42,20,12] #for low-dim latent model used in workshop paper
+        #latent_dim = [250, 200, 200]  # for high-dim model
         neuron_position_info = True  # False for models without infomation about neurons postion -> important for cortical maps models
 
         encoder_dict = {

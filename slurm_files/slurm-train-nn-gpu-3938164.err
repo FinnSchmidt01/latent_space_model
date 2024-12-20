@@ -1,0 +1,35 @@
+Lmod has detected the following error: The following module(s) are unknown:
+"anaconda3"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "anaconda3"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+Lmod has detected the following error: The following module(s) are unknown:
+"anaconda3"
+
+Please check the spelling or version number. Also try "module spider ..."
+It is also possible your cache file is out-of-date; it may help to try:
+  $ module --ignore_cache load "anaconda3"
+
+Also make sure that all modulefiles written in TCL start with the string
+#%Module
+
+
+
+<frozen runpy>:128: RuntimeWarning: 'torch.utils.collect_env' found in sys.modules after import of package 'torch.utils', but prior to execution of 'torch.utils.collect_env'; this may result in unpredictable behaviour
+/home/finn.schmidt/u11302/neuralpredictors/neuralpredictors/layers/cores/base.py:82: UserWarning: The batch_norm is applied to all layers
+  warnings.warn(f"The {attr} is applied to all layers", UserWarning)
+/home/finn.schmidt/u11302/neuralpredictors/neuralpredictors/layers/cores/base.py:82: UserWarning: The bias is applied to all layers
+  warnings.warn(f"The {attr} is applied to all layers", UserWarning)
+/home/finn.schmidt/u11302/neuralpredictors/neuralpredictors/layers/cores/base.py:82: UserWarning: The batch_norm_scale is applied to all layers
+  warnings.warn(f"The {attr} is applied to all layers", UserWarning)
+/home/finn.schmidt/u11302/neuralpredictors/neuralpredictors/layers/readouts/base.py:74: UserWarning: Use of 'gamma_readout' is deprecated. Use 'feature_reg_weight' instead. If 'feature_reg_weight' is defined, 'gamma_readout' is ignored
+  warnings.warn(
+/mnt/lustre-grete/usr/u11302/.conda/envs/sensorium_env/lib/python3.12/site-packages/torch/nn/modules/rnn.py:83: UserWarning: dropout option adds dropout after all but last recurrent layer, so non-zero dropout expects num_layers greater than 1, but got dropout=0.1 and num_layers=1
+  warnings.warn("dropout option adds dropout after all but last "

@@ -1,5 +1,8 @@
-from neuralpredictors.layers.readouts import (FullFactorized2d, FullGaussian2d,
-                                              MultiReadoutSharedParametersBase)
+from neuralpredictors.layers.readouts import (
+    FullFactorized2d,
+    FullGaussian2d,
+    MultiReadoutSharedParametersBase,
+)
 
 
 class MultipleFullGaussian2d(MultiReadoutSharedParametersBase):

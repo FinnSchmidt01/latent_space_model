@@ -3,11 +3,12 @@ from functools import partial
 
 import numpy as np
 import torch
+from nnfabrik.utility.nn_helpers import set_random_seed
+from tqdm import tqdm
+
 import wandb
 from neuralpredictors.measures import modules
 from neuralpredictors.training import LongCycler, early_stopping
-from nnfabrik.utility.nn_helpers import set_random_seed
-from tqdm import tqdm
 
 from ..utility import scores
 from ..utility.scores import get_correlations, get_poisson_loss
@@ -274,7 +275,12 @@ def standard_trainer(
 
     # Compute avg validation and test correlation
     validation_correlation = get_correlations(
-        model, dataloaders["oracle"], device=device, as_dict=False, per_neuron=False, deeplake_ds=deeplake_ds,
+        model,
+        dataloaders["oracle"],
+        device=device,
+        as_dict=False,
+        per_neuron=False,
+        deeplake_ds=deeplake_ds,
     )
     print(f"\n\n FINAL validation_correlation {validation_correlation} \n\n")
 

@@ -1,15 +1,16 @@
 from operator import itemgetter
 
 import torch
-from neuralpredictors.layers.cores import (RotationEquivariant2dCore,
-                                           Stacked2dCore)
+from nnfabrik.utility.nn_helpers import set_random_seed
+from torch import nn
+
+from neuralpredictors.layers.cores import RotationEquivariant2dCore, Stacked2dCore
+
 # imports for 3d cores and gru
 from neuralpredictors.layers.cores.conv3d import Basic3dCore, Factorized3dCore
 from neuralpredictors.layers.rnn_modules.gru_module import GRU_Module
 from neuralpredictors.layers.shifters import MLPShifter, StaticAffine2dShifter
 from neuralpredictors.utils import get_module_output
-from nnfabrik.utility.nn_helpers import set_random_seed
-from torch import nn
 
 from .readouts import MultipleFullFactorized2d, MultipleFullGaussian2d
 from .utility import get_dims_for_loader_dict, prepare_grid

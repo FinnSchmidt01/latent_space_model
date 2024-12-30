@@ -1,14 +1,22 @@
 import numpy as np
-from neuralpredictors.data.datasets import MovieFileTreeDataset
-from neuralpredictors.data.samplers import SubsetSequentialSampler
-from neuralpredictors.data.transforms import (AddBehaviorAsChannels,
-                                              AddPupilCenterAsChannels,
-                                              ChangeChannelsOrder, CutVideos,
-                                              ExpandChannels, NeuroNormalizer,
-                                              ScaleInputs, SelectInputChannel,
-                                              Subsample, Subsequence, ToTensor)
 from torch.utils.data import DataLoader
 from torch.utils.data.sampler import SubsetRandomSampler
+
+from neuralpredictors.data.datasets import MovieFileTreeDataset
+from neuralpredictors.data.samplers import SubsetSequentialSampler
+from neuralpredictors.data.transforms import (
+    AddBehaviorAsChannels,
+    AddPupilCenterAsChannels,
+    ChangeChannelsOrder,
+    CutVideos,
+    ExpandChannels,
+    NeuroNormalizer,
+    ScaleInputs,
+    SelectInputChannel,
+    Subsample,
+    Subsequence,
+    ToTensor,
+)
 
 
 def mouse_video_loader(
@@ -50,7 +58,7 @@ def mouse_video_loader(
     Returns:
         dict: dictionary of dictionaries where the first level keys are 'train', 'validation', and 'test', and second level keys are data_keys.
     """
-    assert frames > 50, 'frames must be higher than 50'
+    assert frames > 50, "frames must be higher than 50"
     data_keys = [
         "videos",
         "responses",
@@ -80,10 +88,10 @@ def mouse_video_loader(
             ChangeChannelsOrder((1, 0), in_name="responses"),
         ]
         if include_behavior:
-            more_transforms.append( ChangeChannelsOrder((1, 0), in_name="behavior") )
+            more_transforms.append(ChangeChannelsOrder((1, 0), in_name="behavior"))
         if include_pupil_centers:
-            more_transforms.append( ChangeChannelsOrder((1, 0), in_name="pupil_center") )
-        
+            more_transforms.append(ChangeChannelsOrder((1, 0), in_name="pupil_center"))
+
         if to_cut:
             more_transforms.append(
                 Subsequence(frames=frames, channel_first=(), offset=offset)
@@ -93,17 +101,12 @@ def mouse_video_loader(
             ExpandChannels("videos"),
         ]
         if include_behavior:
-            more_transforms.append( ChangeChannelsOrder((1, 0), in_name="behavior") )
+            more_transforms.append(ChangeChannelsOrder((1, 0), in_name="behavior"))
         if include_pupil_centers:
-            more_transforms.append( ChangeChannelsOrder((1, 0), in_name="pupil_center") )
-
+            more_transforms.append(ChangeChannelsOrder((1, 0), in_name="pupil_center"))
 
         if include_behavior:
-            more_transforms.append(
-                AddBehaviorAsChannels(
-                    "videos"
-                )
-            )
+            more_transforms.append(AddBehaviorAsChannels("videos"))
         if include_pupil_centers and include_pupil_centers_as_channels:
             more_transforms.append(AddPupilCenterAsChannels("videos"))
 
@@ -137,7 +140,7 @@ def mouse_video_loader(
         tier_array = dat2.trial_info.tiers
 
         for tier in keys:
-            if tier != 'none':
+            if tier != "none":
                 subset_idx = np.where(tier_array == tier)[0]
 
                 sampler = (

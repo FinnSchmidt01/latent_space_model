@@ -7,18 +7,18 @@ import scipy.stats
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from neuralpredictors.layers.encoders.zero_inflation_encoders import ZIGEncoder
-from neuralpredictors.measures import zero_inflated_losses
-from neuralpredictors.training import LongCycler
+from moments import load_mean_variance
 from nnfabrik.utility.nn_helpers import set_random_seed
+from sensorium.datasets.mouse_video_loaders import mouse_video_loader
+from sensorium.models.make_model import make_video_model
 from sklearn.cross_decomposition import CCA
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 from tqdm import tqdm
 
-from moments import load_mean_variance
-from sensorium.datasets.mouse_video_loaders import mouse_video_loader
-from sensorium.models.make_model import make_video_model
+from neuralpredictors.layers.encoders.zero_inflation_encoders import ZIGEncoder
+from neuralpredictors.measures import zero_inflated_losses
+from neuralpredictors.training import LongCycler
 
 
 def compute_correlations_latents(latents, behaviors):

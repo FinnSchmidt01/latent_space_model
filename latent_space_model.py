@@ -25,25 +25,28 @@ import json
 
 import matplotlib.pyplot as plt
 import optuna
-from neuralpredictors.layers.cores.conv2d import Stacked2dCore
-from neuralpredictors.layers.encoders.mean_variance_functions import \
-    fitted_zig_mean
-from neuralpredictors.layers.encoders.zero_inflation_encoders import ZIGEncoder
-from neuralpredictors.measures import modules, zero_inflated_losses
-from neuralpredictors.training import LongCycler, early_stopping
+from moments import load_mean_variance
 from nnfabrik.builder import get_trainer
 from nnfabrik.utility.nn_helpers import set_random_seed
-from optuna.visualization import (plot_contour, plot_optimization_history,
-                                  plot_param_importances, plot_slice)
-from tqdm import tqdm
-
-import wandb
-from moments import load_mean_variance
+from optuna.visualization import (
+    plot_contour,
+    plot_optimization_history,
+    plot_param_importances,
+    plot_slice,
+)
 from sensorium.datasets.mouse_video_loaders import mouse_video_loader
 from sensorium.models.make_model import make_video_model
 from sensorium.models.video_encoder import VideoFiringRateEncoder
 from sensorium.utility import scores
 from sensorium.utility.scores import get_correlations, get_poisson_loss
+from tqdm import tqdm
+
+import wandb
+from neuralpredictors.layers.cores.conv2d import Stacked2dCore
+from neuralpredictors.layers.encoders.mean_variance_functions import fitted_zig_mean
+from neuralpredictors.layers.encoders.zero_inflation_encoders import ZIGEncoder
+from neuralpredictors.measures import modules, zero_inflated_losses
+from neuralpredictors.training import LongCycler, early_stopping
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
@@ -777,7 +780,7 @@ def standard_trainer(
         # torch.save(
         # model.state_dict(), f"toymodels2/temp_save.pth"
         # )
-        
+
         print(
             f"Epoch {epoch}, Batch {batch_no}, Train loss {loss}, Validation loss {val_loss}"
         )
@@ -874,7 +877,7 @@ def standard_trainer(
         non_linearity = True
     else:
         non_linearity = False
-    
+
     return score
 
 

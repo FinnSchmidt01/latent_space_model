@@ -4,6 +4,8 @@ This repository provides code for evaluating and training  a latent space model.
 
 The eval.py file demonstrates how the latent space model is loaded and evaluated.
 
+The latent_space_model.py file trains and saves our latent space models depending on the given configurations. 
+
 ## Installation
 The conda environment YAML file for this repository is located in the `infrastructure/scripts` folder.
 

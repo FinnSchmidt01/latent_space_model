@@ -5,9 +5,9 @@ This repository provides code for evaluating and training  a latent space model.
 The eval.py file demonstrates how the latent space model is loaded and evaluated.
 
 ## Installation
-The yml file for conda environment of this repository can be found in the infrastructure scripts folder.
+The conda environment YAML file for this repository is located in the `infrastructure/scripts` folder.
 
-To get started, one needs to additionally clone the `neuralpredictors` repository and install the required branch (`latent_space_model`):
+To get started, clone the `neuralpredictors` repository and install the `latent_space_model` branch to complete the setup:
 
 ```bash
 # Clone the neuralpredictors repository

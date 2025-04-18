@@ -2,10 +2,6 @@ seed = 42
 import sys
 
 sys.path.append("/srv/user/turishcheva/sensorium_replicate/sensorium_2023/")
-# sys.path.append('/srv/user/turishcheva/sensorium_replicate/neuralpredictors/')
-# sys.path.append('/srv/user/turishcheva/from_ayush/ayush_april/new_neuropred_code/neuralpredictors')
-# sys.path.append('/srv/user/turishcheva/from_ayush/ayush_april/sensorium_2023')
-
 from functools import partial
 
 import numpy as np
@@ -16,49 +12,34 @@ import torch.optim as optim
 from nnfabrik.utility.nn_helpers import set_random_seed
 from torch.distributions.kl import kl_divergence
 from torch.distributions.normal import Normal
-from torch.utils.data import DataLoader
-from torch.utils.data.dataloader import default_collate
 
 set_random_seed(seed)
-
-import json
-
-import matplotlib.pyplot as plt
-import optuna
-from moments import load_mean_variance
-from nnfabrik.builder import get_trainer
-from nnfabrik.utility.nn_helpers import set_random_seed
-from optuna.visualization import (
-    plot_contour,
-    plot_optimization_history,
-    plot_param_importances,
-    plot_slice,
-)
-from sensorium.datasets.mouse_video_loaders import mouse_video_loader
-from sensorium.models.make_model import make_video_model
-from sensorium.models.video_encoder import VideoFiringRateEncoder
-from sensorium.utility import scores
-from sensorium.utility.scores import get_correlations, get_poisson_loss
-from tqdm import tqdm
+import os
 
 import wandb
-from eval import eval_model
 from neuralpredictors.layers.cores.conv2d import Stacked2dCore
-from neuralpredictors.layers.encoders.mean_variance_functions import fitted_zig_mean
+from neuralpredictors.layers.encoders.mean_variance_functions import \
+    fitted_zig_mean
 from neuralpredictors.layers.encoders.zero_inflation_encoders import ZIGEncoder
 from neuralpredictors.measures import modules, zero_inflated_losses
 from neuralpredictors.training import LongCycler, early_stopping
+from nnfabrik.utility.nn_helpers import set_random_seed
+from tqdm import tqdm
+
+from eval import eval_model
+from moments import load_mean_variance
+from sensorium.datasets.mouse_video_loaders import mouse_video_loader
+from sensorium.models.make_model import make_video_model
+from sensorium.utility import scores
+from sensorium.utility.scores import get_correlations
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
-# torch.cuda.set_device(device)
 
 wandb.login()
 
-import os
 
 ### New code
-
 
 def kl_divergence_gaussian(mu, sigma):
     """
@@ -106,67 +87,7 @@ def calculate_ema(data, alpha):
     return ema
 
 
-class WarmupCosineAnnealingLR(torch.optim.lr_scheduler._LRScheduler):
-    def __init__(
-        self,
-        optimizer,
-        warmup_steps,
-        max_lr,
-        min_lr,
-        T_max,
-        total_batches=225,
-        last_epoch=-1,
-        repeat_warmup=False,
-    ):
-        self.warmup_steps = warmup_steps
-        self.max_lr = max_lr
-        self.min_lr = min_lr
-        self.T_max = T_max
-        self.total_batches = total_batches
-        self.batch_step = 0  # to track batch steps during warmup
-        self.repeat_warmup = repeat_warmup
-        super().__init__(optimizer, last_epoch)
-
-    def step(self, batch_increment=None):
-        if batch_increment is not None:
-            self.batch_step += 5
-            self.last_epoch = (
-                self.batch_step / self.total_batches
-            )  # Update epoch count after full batch cycle
-        super().step()
-
-    def get_lr(self):
-        if self.repeat_warmup:
-            lr = (self.max_lr - self.min_lr) * (
-                (self.batch_step % (5 * self.warmup_steps)) / (5 * self.warmup_steps)
-            ) + self.min_lr
-        else:
-            if self.batch_step < 5 * self.warmup_steps:
-                # Warmup phase based on batch steps
-                lr = (self.max_lr - self.min_lr) * (
-                    self.batch_step / (5 * self.warmup_steps)
-                ) + self.min_lr
-            else:
-                # Cosine annealing phase based on epoch count
-                lr = self.min_lr + 0.5 * (self.max_lr - self.min_lr) * (
-                    1
-                    + torch.cos(
-                        torch.tensor(
-                            torch.pi
-                            * (
-                                (
-                                    self.last_epoch
-                                    - self.warmup_steps * 5 / self.total_batches
-                                )
-                                % self.T_max
-                            )
-                            / self.T_max
-                        )
-                    )
-                )
-        return [lr for _ in self.base_lrs]
-
-'''
+"""
 paths = [
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20/",
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
@@ -174,7 +95,7 @@ paths = [
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
 ]
-'''
+"""
 paths = [
     "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29156-11-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
     "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29228-2-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
@@ -207,34 +128,6 @@ data_loaders_nobehavior = mouse_video_loader(
     cuda=device != "cpu",
 )
 
-print("Data loaded")
-
-cell_coordinates = {}
-data_keys = [
-    "dynamic29156-11-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
-    "dynamic29228-2-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
-    "dynamic29234-6-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
-    "dynamic29513-3-5-Video-8744edeac3b4d1ce16b680916b5267ce/",
-    "dynamic29514-2-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
-]
-for data_key in data_keys:
-    cell_coordinates_path = (
-        "/scratch-grete/projects/nim00012/original_sensorium_2023/"
-        + data_key
-        + "/meta/neurons/cell_motor_coordinates.npy"
-    )
-    cell_coordinates[data_key] = np.load(cell_coordinates_path)
-    cell_coordinates[data_key] = torch.tensor(
-        cell_coordinates[data_key], device=device, dtype=torch.float32
-    )
-    mean_coords = cell_coordinates[data_key].mean(
-        dim=0, keepdim=True
-    )  # Mean value for each dimension xyz
-    std_coords = cell_coordinates[data_key].std(
-        dim=0, keepdim=True
-    )  # Standard deviation for each dimension xyz
-    cell_coordinates[data_key] = (cell_coordinates[data_key] - mean_coords) / std_coords
-
 
 def standard_trainer(
     model,
@@ -258,8 +151,6 @@ def standard_trainer(
     lr_decay_steps=3,
     lr_decay_factor=0.3,
     min_lr=0.0001,
-    warmup_steps=5,
-    T_max=5,
     cb=None,
     detach_core=False,
     use_wandb=True,
@@ -268,12 +159,10 @@ def standard_trainer(
     wandb_name=None,
     wandb_model_config=None,
     wandb_dataset_config=None,
-    print_step=1000,
     save_checkpoints=True,
     checkpoint_save_path="local/",
     chpt_save_step=15,
     k_reg=False,
-    hyper=False,
     ema_span=0.3,  # ema for validation correlation
     scheduler_patience=6,  # patience for decaying learning rate
     latent=False,
@@ -308,7 +197,6 @@ def standard_trainer(
         cb: whether to execute callback function
         zig : True if ZIG encoder is used as model
         k_reg: is a dictonary containg the fitted k_values for each mice, applies regularization to size of shape parameter k of gamma distribution if k_reg is not None but a dictionary,
-        hyper: is optuna trial if hyperparameter search is active, otherwise False
         ema-Span: alpha factor of exponential moving avaerage of validation correlation
         **kwargs:
 
@@ -335,10 +223,7 @@ def standard_trainer(
         if loss_function == "ZIGLoss" or loss_function == "combinedLoss":
             # one entry in a tuple corresponds to one paramter of ZIG
             # the output is (theta,k,loc,q)
-            if model.position_features:
-                positions = cell_coordinates[data_key]
-            else:
-                positions = None
+            positions = None
             # args[0][0:1] removes behavior from the video input data.
             model_output = model(
                 args[0][:, 0:1].to(device),
@@ -362,11 +247,6 @@ def standard_trainer(
 
             comparison_result = original_data <= loc
             zero_mask = comparison_result.int()
-
-            # if model.flow: #transform orginal data with flow, if flow is applied to model
-            # _, log_det = model.flow[data_key](original_data,zero_mask)
-            # else:
-            # log_det = 0
 
             if k_regu:
                 k_fitted = k_regu[data_key + "fitted_k"]
@@ -394,28 +274,11 @@ def standard_trainer(
                 # Mask neurons, which were given in Encoder
                 neuron_mask = model_output[8].to(means.device)
                 neuron_mask = neuron_mask.unsqueeze(-1).repeat(1, 1, 1, n_samples)
-
-                if model.flow:
-                    if model.flow_base == "Gaussian":
-                        zig_loss, log_det = criterion(
-                            model,
-                            data_key,
-                            targets=original_data,
-                            rho=loc,
-                            qs=q,
-                            means=theta,
-                            psi_diag=model.psi[data_key],
-                        )
-                        zig_loss = (
-                            -1 * loss_scale * zig_loss
-                        )  # the gaussian log likelihood already computes and sums the log_det
-                    else:
-                        original_data, log_det = model.flow[data_key](
-                            original_data.squeeze(-1), zero_mask.squeeze(-1)
-                        )
-                        original_data = original_data.unsqueeze(-1)
-                        log_det = log_det.unsqueeze(-1)
-                        zig_loss = criterion(
+                zig_loss = (
+                    -1
+                    * loss_scale
+                    * (
+                        criterion(
                             theta,
                             k,
                             loc=loc,
@@ -424,23 +287,8 @@ def standard_trainer(
                             zero_mask=zero_mask,
                             nonzero_mask=nonzero_mask,
                         )[0]
-                        zig_loss = -1 * loss_scale * (zig_loss + log_det)
-                else:
-                    zig_loss = (
-                        -1
-                        * loss_scale
-                        * (
-                            criterion(
-                                theta,
-                                k,
-                                loc=loc,
-                                q=q,
-                                target=original_data,
-                                zero_mask=zero_mask,
-                                nonzero_mask=nonzero_mask,
-                            )[0]
-                        )
                     )
+                )
 
                 zig_loss.masked_fill_(~neuron_mask, 0)
                 zig_loss = zig_loss.sum() + regularizers
@@ -496,26 +344,7 @@ def standard_trainer(
 
             else:  # only zig loss
                 if len(model_output) > 4:
-                    if model.flow:
-                        if model.flow_base == "Gaussian":
-                            return (
-                                zig_loss,
-                                kl_divergence,
-                                log_det.unsqueeze(-1)
-                                .repeat(1, 1, 1, n_samples)
-                                .masked_fill_(~neuron_mask, 0)
-                                .sum(),
-                            )
-                        else:
-                            return (
-                                zig_loss,
-                                kl_divergence,
-                                log_det.repeat(1, 1, 1, n_samples)
-                                .masked_fill_(~neuron_mask, 0)
-                                .sum(),
-                            )
-                    else:
-                        return zig_loss, kl_divergence
+                    return zig_loss, kl_divergence
                 else:
                     return zig_loss
             """
@@ -550,18 +379,8 @@ def standard_trainer(
     set_random_seed(seed)
     model.train()
     if loss_function == "ZIGLoss" or loss_function == "combinedLoss":
-        if model.flow:
-            print(model.flow_base)
-            if model.flow_base == "Gaussian":
-                zif_loss_instance = zero_inflated_losses.ZIFLoss()
-                criterion = zif_loss_instance.get_slab_logl
-                print("Gaussian Loss")
-            else:
-                zig_loss_instance = zero_inflated_losses.ZIGLoss()
-                criterion = zig_loss_instance.get_slab_logl
-        else:
-            zig_loss_instance = zero_inflated_losses.ZIGLoss()
-            criterion = zig_loss_instance.get_slab_logl
+        zig_loss_instance = zero_inflated_losses.ZIGLoss()
+        criterion = zig_loss_instance.get_slab_logl
 
         if loss_function == "combinedLoss":
             criterion_pos = getattr(modules, "PoissonLoss")(avg=avg_loss)
@@ -574,7 +393,7 @@ def standard_trainer(
         per_neuron=False,
         avg=True,
         flow=model.flow,
-        cell_coordinates=cell_coordinates if model.position_features else None,
+        cell_coordinates=None,
     )
 
     n_iterations = len(LongCycler(dataloaders["train"]))
@@ -593,9 +412,6 @@ def standard_trainer(
         verbose=verbose,
         threshold_mode="abs",
     )
-
-    # scheduler = WarmupCosineAnnealingLR(optimizer, warmup_steps=warmup_steps, max_lr=lr_init, min_lr=min_lr, T_max=T_max,repeat_warmup = False)
-
     # set the number of iterations over which you would like to accummulate gradients
     optim_step_count = (
         len(dataloaders["train"].keys())
@@ -658,9 +474,10 @@ def standard_trainer(
             desc="Epoch {}".format(epoch),
         ):
             batch_no_tot += 1
+            # TODO - polly, these two lines are basically the ones you want to change!
             batch_args = list(data)
-
             batch_kwargs = data._asdict() if not isinstance(data, dict) else data
+
             loss = full_objective(
                 model,
                 dataloaders["train"],
@@ -676,59 +493,11 @@ def standard_trainer(
             epoch_loss += loss.detach()
             if (batch_no + 1) % optim_step_count == 0:
                 optimizer.step()
-                # scheduler.step(batch_increment=1)
-                # lr = optimizer.param_groups[0]['lr']
-                # print(lr,"lr")
                 optimizer.zero_grad(set_to_none=True)
-
         model.eval()
         ###
         print(epoch_loss / 225, "loss", epoch, "epoch")
         lr = optimizer.param_groups[0]["lr"]
-        if model.position_features:
-            positions = cell_coordinates[data_key]
-        else:
-            positions = None
-
-        model_output2 = model(
-            batch_args[0][:, 0:1].to(device),
-            data_key=data_key,
-            out_predicts=False,
-            positions=positions,
-            **batch_kwargs,
-        )
-        theta = model_output2[0]
-        k = model_output2[1]
-        loc = model_output2[2]
-        q = model_output2[3]
-        if len(model_output2) > 4:
-            latent_means = model_output2[4]
-            sigma_squared2 = model_output2[5]
-            # if not model.position_features:
-            # latent_feature_q = model_output2[6][data_key+"_q"]
-            # latent_feature_theta = model_output2[6][data_key+"_theta"]
-            n_samples = model_output2[7]
-
-        print("theta")
-        print(theta)
-        print(torch.mean(theta))
-        print("q")
-        print(q)
-        print(torch.mean(q))
-        print(" ")
-        if len(model_output2) > 4:
-            print("means")
-            print(latent_means)
-            print(torch.mean(latent_means))
-            print("sigma")
-            print(sigma_squared2)
-            # print("latent_feature_q")
-            # print(latent_feature_q)
-            # print(torch.mean(latent_feature_q))
-            # print("latent_feature_theta")
-            # print(latent_feature_theta)
-            # print(torch.mean(latent_feature_theta))
-
         ###
         ## after - epoch-analysis
 
@@ -740,14 +509,12 @@ def standard_trainer(
             per_neuron=False,
             deeplake_ds=False,
             flow=model.flow,
-            cell_coordinates=cell_coordinates if model.position_features else None,
+            cell_coordinates=None,
         )
 
         if save_checkpoints:
             if validation_correlation > best_validation_correlation:
-                torch.save(
-                    model.state_dict(), f"{checkpoint_save_path}best.pth"
-                )
+                torch.save(model.state_dict(), f"{checkpoint_save_path}best.pth")
                 best_validation_correlation = validation_correlation
 
         if loss_function == "PoissonLoss" or (not model.latent):
@@ -760,29 +527,19 @@ def standard_trainer(
                 detach_core=detach_core,
             )
         else:
-            if model.flow:
-                val_loss, kl_div, log_det = full_objective(
-                    model,
-                    dataloaders["oracle"],
-                    data_key,
-                    *batch_args,
-                    **batch_kwargs,
-                    detach_core=detach_core,
-                )
-            else:
-                val_loss, kl_div = full_objective(
-                    model,
-                    dataloaders["oracle"],
-                    data_key,
-                    *batch_args,
-                    **batch_kwargs,
-                    detach_core=detach_core,
-                )
+            val_loss, kl_div = full_objective(
+                model,
+                dataloaders["oracle"],
+                data_key,
+                *batch_args,
+                **batch_kwargs,
+                detach_core=detach_core,
+            )
 
         # torch.save(
         # model.state_dict(), f"toymodels2/temp_save.pth"
         # )
-    
+
         print(
             f"Epoch {epoch}, Batch {batch_no}, Train loss {loss}, Validation loss {val_loss}"
         )
@@ -791,8 +548,8 @@ def standard_trainer(
         ema_values.append(validation_correlation)
         ema = calculate_ema(torch.tensor(ema_values), ema_span)[-1]
 
-        #linear_layer = model.encoder.linear[data_key]
-        #reg_term = linear_layer.weight.abs().sum()
+        # linear_layer = model.encoder.linear[data_key]
+        # reg_term = linear_layer.weight.abs().sum()
 
         if use_wandb:
             wandb_dict = {
@@ -808,36 +565,11 @@ def standard_trainer(
                 "Epoch": epoch,
                 # "Theta First": theta_first,
                 # "Theta Last": theta_last,
-                "Theta Mean": torch.mean(theta),
-                # "Loc First": loc_first,
-                # "Loc Last": loc_last,
-                # "Loc Mean": torch.mean(loc),
-                # "K First": k_first,
-                # "K Last": k_last,
-                # "K Mean": torch.mean(k),
-                # "Q First": q_first,
-                # "Q Last": q_last,
-                "Q Mean": torch.mean(q),
+                # "Theta Mean": torch.mean(theta),
+                # "Q Mean": torch.mean(q),
                 "Learning rate": lr,
-                #"kl_divergence": kl_div,
-                #"latent_means": torch.mean(latent_means),
-                #"latent_variance": latent_means.var(),
-                #"latent_max": latent_means.max(),
-                #"latent_min": latent_means.min(),
-                #"latent_sigma": sigma_squared2,
-                # "latent_feature_q": torch.norm(latent_feature_q, dim = 0).mean(),
-                # "latent_feature_theta": torch.norm(latent_feature_theta, dim = 0).mean(),
-                #"regularization term": reg_term,
             }
             wandb.log(wandb_dict)
-
-            # for hyperparameter search
-            if hyper:
-                hyper.report(ema, epoch)
-                if hyper.should_prune():
-                    if use_wandb:
-                        wandb.finish()
-                    raise optuna.exceptions.TrialPruned()
 
         model.train()
 
@@ -855,7 +587,7 @@ def standard_trainer(
         per_neuron=False,
         deeplake_ds=False,
         flow=model.flow,
-        cell_coordinates=cell_coordinates if model.position_features else None,
+        cell_coordinates=None,
     )
     print(f"\n\n FINAL validation_correlation {validation_correlation} \n\n")
 
@@ -872,13 +604,6 @@ def standard_trainer(
     for f2c in to_clean:
         if "epoch" in f2c:
             os.remove(os.path.join("toymodels", f2c))
-
-    if model.encoder.elu:
-        non_linearity = True
-    else:
-        non_linearity = False
-
-    
 
     return score
 
@@ -960,26 +685,9 @@ factorised_3d_model = make_video_model(
     shifter_type="MLP",
     deeplake_ds=False,
 )
-factorised_3d_model
-trainer_fn = "sensorium.training.video_training_loop.standard_trainer"
-trainer_config = {
-    "dataloaders": data_loaders,
-    "seed": 111,
-    "use_wandb": True,
-    "wandb_project": "toymodel",
-    "wandb_entity": None,
-    "wandb_name": "new_file_test",
-    "verbose": True,
-    "lr_decay_steps": 4,
-    "lr_init": 0.0005,
-    "device": device,
-    "detach_core": False,
-    "maximize": True,
-    "checkpoint_save_path": "toymodels/",
-}
 
 # load means and varaince of neurons for Moment fitting
-base_dir = base_dir = "/scratch-grete/projects/nim00012/original_sensorium_2023/"
+base_dir = "/scratch-grete/projects/nim00012/original_sensorium_2023/"
 mean_variance_dict = load_mean_variance(base_dir, device)
 
 # determine maximal number of neurons
@@ -1028,10 +736,6 @@ behavior_mlp["input_size"] = (
 )
 behavior_mlp["layer_sizes"] = [4, 6]
 
-for data_key in data_keys:
-    cell_coordinates[data_key] = cell_coordinates[data_key][
-        :, 0 : position_mlp["input_size"]
-    ]  # adapt cell_coordinates to MLP input (either xy corrdinates or xyz)
 
 latent = True
 zig_model = ZIGEncoder(
@@ -1051,38 +755,27 @@ zig_model = ZIGEncoder(
     dropout_prob=dropout_prob,
     future_prediction=False,
     flow=False,
-    # position_features = position_mlp,
-    # behavior_in_encoder = behavior_mlp
+    position_features = None,
+    behavior_in_encoder = None
 )
 if not latent:
     zig_model.flow = False
 # zig_model.load_state_dict(torch.load('toymodels2/zig_no_brain_posbest.pth', map_location=device),strict=False)
-#zig_model.load_state_dict(
-    #torch.load("toymodels/zig_nobehaviorbest.pth", map_location=device), strict=False
-#)
-#zig_model.load_state_dict(torch.load('models/ZIG_differentmicebest.pth', map_location=device),strict=False)
+# zig_model.load_state_dict(
+# torch.load("toymodels/zig_nobehaviorbest.pth", map_location=device), strict=False
+# )
+# zig_model.load_state_dict(torch.load('models/ZIG_differentmicebest.pth', map_location=device),strict=False)
 
 # zig_model.load_state_dict(torch.load('models_differentdropout/42seedacross_time_dropout0.5drop_probbest.pth', map_location=device),strict=False)
 # Print all keys in the loaded state dictionary
-zig_model.load_state_dict(torch.load('models/16_core_channels_zig_mice6_10best.pth', map_location=device),strict=False)
+zig_model.load_state_dict(
+    torch.load("models/16_core_channels_zig_mice6_10best.pth", map_location=device),
+    strict=False,
+)
 
 print("Out_dim", encoder_dict["output_dim"])
 lr_inint = 5e-3
 min_lr = 1e-5
-
-
-def round_to_two_non_zeros(x):
-    import math
-
-    # Find the first non-zero digit
-    first_non_zero = int(math.floor(-math.log10(abs(x)))) + 1
-    # Shift decimal point to make first two significant digits before the decimal
-    shifted = x * (10**first_non_zero)
-    # Round to two significant figures
-    rounded = round(shifted, 1)
-    # Shift back
-    final_value = str(rounded) + "e-" + str(first_non_zero)
-    return final_value
 
 
 validation_score = standard_trainer(

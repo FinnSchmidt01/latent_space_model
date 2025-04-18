@@ -34,38 +34,30 @@ def model_predictions(
     target, output = [], []
     neuron_mask = None
 
-    for batch in dataloader:
+    for _, batch in dataloader:
 
-        batch_kwargs = batch._asdict() if not isinstance(batch, dict) else batch
-        if deeplake_ds:
-            for k in batch_kwargs.keys():
-                if k not in ["id", "index"]:
-                    batch_kwargs[k] = torch.Tensor(np.asarray(batch_kwargs[k])).to(
-                        device
-                    )
-            images = batch_kwargs["videos"][:, 0:1]
-            responses = batch_kwargs["responses"]
-            if flow:
-                responses, logdet = model.flow[data_key](responses)
-        else:
-            images, responses = (
-                batch[:2]
-                if not isinstance(batch, dict)
-                else (batch["videos"], batch["responses"])
-            )
-            images = images[:, 0:1]  # remove behavior from video inputs
-            # if flow:
-            # loc = 0.005
-            # comparison_result = responses <= loc
-            # zero_mask = comparison_result.int().permute(0,2,1)
-            # responses, _ = model.flow[data_key](responses.permute(0,2,1),zero_mask) #flow expects input (B,time,neurons)
-            # responses = responses.permute(0,2,1)
+        beh = torch.cat([batch['eye_tracker'][:, :, :2].transpose(2, 1), batch['treadmill'][:, :, :2].transpose(2, 1)], axis=1)
+        video = batch['screen']
+        b_expanded = beh.unsqueeze(-1).unsqueeze(-1)  # or b[:, :, :, None, None]
+        # Now broadcast b to match the spatial dimensions [16, 3, 60, 144, 256]
+        beh_tiled = b_expanded.expand(-1, -1, -1, video.shape[3], video.shape[4])
+        # Concatenate along dim=1 to get [16, 4, 60, 144, 256]
+        
+        responses = batch['responses'].transpose(2, 1)
         with torch.no_grad():
+
             resp = responses.detach().cpu()[:, :, skip:]
             target = target + list(resp)
             with device_state(model, device):
-                out_predicts = False if model.flow else True
-
+                responses = responses.to(device)
+                video = torch.cat([video, beh_tiled], dim=1).to(device)
+                batch_kwargs = {
+                    'videos': video,
+                    'pupil_center_core': batch['eye_tracker'][:, :, 2:].transpose(2, 1).to(device),
+                    'responses': resp
+                }
+                images = video
+                out_predicts = True
                 if model.position_features:
                     positions = cell_coordinates[data_key]
                 else:
@@ -73,7 +65,7 @@ def model_predictions(
 
                 if prior:
                     out = model.forward_prior(
-                        images.to(device),
+                        images,
                         data_key=data_key,
                         out_predicts=out_predicts,
                         repeats=repeats,
@@ -94,75 +86,14 @@ def model_predictions(
                         )
 
                     out = model(
-                        images.to(device),
+                        images,
                         data_key=data_key,
                         neuron_mask=neuron_mask,
                         out_predicts=out_predicts,
                         positions=positions,
                         **batch_kwargs,
                     )
-
-                if model.flow:
-                    theta, k, loc, q, *_ = out
-                    theta = theta.mean(dim=3)
-                    q = q.mean(dim=3)
-                    if model.flow_base == "Gaussian":
-                        # Get the diagonal covariance psi for the given data key
-                        psi_diag = model.psi[data_key].to(
-                            theta.device
-                        )  # Shape: (Neurons,)
-
-                        # Apply reparameterization trick for sampling from Gaussian
-                        # Sample epsilon from a standard normal distribution
-                        epsilon = torch.randn(
-                            (model.samples, *theta.shape), device=theta.device
-                        )  # Shape: (Samples, Batch, Time, Neurons)
-                        epsilon = epsilon.permute(
-                            1, 2, 3, 0
-                        )  # Shape: (Batch, Time, Neurons, Samples)
-
-                        # Reparameterize to obtain Gaussian samples with mean theta and variance psi_diag
-                        gaussian_samples = theta.unsqueeze(
-                            -1
-                        ) + epsilon * psi_diag.sqrt().unsqueeze(0).unsqueeze(
-                            0
-                        ).unsqueeze(
-                            -1
-                        )  # Shape: (Batch, Time, Neurons, Samples)
-
-                        # Apply inverese flow function
-                        response_predictions = model.flow[data_key].invert_flow(
-                            gaussian_samples
-                        )
-                    else:
-                        gamma_samples = torch.distributions.Gamma(
-                            concentration=k, rate=q
-                        ).rsample(
-                            (model.samples,)
-                        )  # Shape: (Samples, Batch, Time, Neurons)
-                        gamma_samples = gamma_samples.permute(
-                            1, 2, 3, 0
-                        ) + loc.unsqueeze(
-                            -1
-                        )  # Shape: (Batch, Time, Neurons, Samples)
-
-                        # Apply inverese flow function
-                        response_predictions = model.flow[data_key].invert_flow(
-                            gamma_samples
-                        )
-
-                    out = (q.unsqueeze(-1) * response_predictions).mean(dim=3)
-
-                    # flow is applied only to non zero part
-                    # time_points = loc.shape[1]
-                    # responses = responses.permute(0,2,1)[:,-time_points:,:]
-                    # comparison_result = responses >= loc
-                    # non_zero_mask = comparison_result.int()
-                    # out = out * non_zero_mask
-
-                    out = out.detach().cpu()[:, -resp.shape[-1] :, :]
-                else:
-                    out = out.detach().cpu()[:, -resp.shape[-1] :, :]
+                out = out.detach().cpu()[:, -resp.shape[-1] :, :]
 
                 assert (
                     out.shape[1] == resp.shape[-1]

@@ -33,6 +33,10 @@ def make_video_model(
     nonlinearity_type="elu",
     nonlinearity_config=None,
     deeplake_ds=False,
+    n_neurons_dict=None,
+    mean_activity_dict=None,
+    readout_dim=None,
+    experanto=False,
 ):
     """
     Model class of a stacked2dCore (from neuralpredictors) and a pointpooled (spatial transformer) readout
@@ -56,25 +60,15 @@ def make_video_model(
             PointPooled2D in neuralpredictors.layers.readouts
     Returns: An initialized model which consists of model.core and model.readout
     """
-
-    if "train" in dataloaders.keys():
-        dataloaders = dataloaders["train"]
+    if not experanto:
+        if "train" in dataloaders.keys():
+            dataloaders = dataloaders["train"]
 
     # Obtain the named tuple fields from the first entry of the first dataloader in the dictionary
-    batch = next(iter(list(dataloaders.values())[0]))
-    in_name, out_name = (
-        list(batch.keys())[:2] if isinstance(batch, dict) else batch._fields[:2]
-    )
 
-    session_shape_dict = get_dims_for_loader_dict(dataloaders, deeplake_ds)
-    n_neurons_dict = {k: v[out_name][1] for k, v in session_shape_dict.items()}
-    input_channels = [v[in_name][1] for v in session_shape_dict.values()]
-
-    core_input_channels = (
-        list(input_channels.values())[0]
-        if isinstance(input_channels, dict)
-        else input_channels[0]
-    )
+    if n_neurons_dict is None:
+        session_shape_dict = get_dims_for_loader_dict(dataloaders, deeplake_ds)
+        n_neurons_dict = {k: v['responses'][1] for k, v in session_shape_dict.items()}
 
     set_random_seed(seed)
 
@@ -109,30 +103,18 @@ def make_video_model(
         core = Basic3dCore(**core_dict)
     else:
         raise NotImplementedError(f"core type {core_type} is not implemented")
-
-    if "3D" in core_type:
+    if experanto:
+        in_shapes_dict = {
+            k: (readout_dim, 18, 46)
+            for k in list(n_neurons_dict.keys())
+        }
+    else:
         subselect = itemgetter(0, 2, 3)
         in_shapes_dict = {
-            k: subselect(tuple(get_module_output(core, v[in_name])[1:]))
+            k: subselect(tuple(get_module_output(core, v['videos'])[1:]))
             for k, v in session_shape_dict.items()
         }
-    else:
-        session_shape_dict_2d = {
-            k: torch.Size([v[in_name][0] * v[in_name][2], v[in_name][1]])
-            + v[in_name][3:]
-            for k, v in session_shape_dict.items()
-        }
-
-        in_shapes_dict = {
-            k: get_module_output(core, v)[1:] for k, v in session_shape_dict_2d.items()
-        }
-
-    if deeplake_ds:
-        mean_activity_dict = {
-            k: next(iter(dataloaders[k]))["responses"].mean(0).mean(-1)
-            for k in dataloaders.keys()
-        }
-    else:
+    if mean_activity_dict is None:
         mean_activity_dict = {
             k: next(iter(dataloaders[k]))[1].mean(0).mean(-1)
             for k in dataloaders.keys()
@@ -140,7 +122,8 @@ def make_video_model(
 
     readout_dict["in_shape_dict"] = in_shapes_dict
     readout_dict["n_neurons_dict"] = n_neurons_dict
-    readout_dict["loaders"] = dataloaders
+    # todo - check if its needed at al?
+    # readout_dict["loaders"] = dataloaders
 
     if readout_type == "gaussian":
         grid_mean_predictor, grid_mean_predictor_type, source_grids = prepare_grid(
@@ -152,20 +135,6 @@ def make_video_model(
         readout_dict["grid_mean_predictor_type"] = grid_mean_predictor_type
         readout_dict["source_grids"] = source_grids
         readout = MultipleFullGaussian2d(**readout_dict)
-
-    elif readout_type == "factorised":
-        if readout_dict["bias"]:
-            mean_activity_dict = {}
-            for key, value in dataloaders.items():
-                if deeplake_ds:
-                    targets = next(iter(value))["responses"]
-                else:
-                    targets = next(iter(value))[2]
-                mean_activity_dict[key] = targets.mean(0).mean(-1)
-            readout_dict["mean_activity_dict"] = mean_activity_dict
-        else:
-            readout_dict["mean_activity_dict"] = None
-        readout = MultipleFullFactorized2d(**readout_dict)
     else:
         raise NotImplementedError(f"readout type {readout_type} is not implemented")
 
@@ -176,7 +145,8 @@ def make_video_model(
 
     shifter = None
     if use_shifter:
-        data_keys = [i for i in dataloaders.keys()]
+        # todo 
+        data_keys = list(n_neurons_dict.keys())
         shifter_dict["data_keys"] = data_keys
         if shifter_type == "MLP":
             shifter = MLPShifter(**shifter_dict)
@@ -193,9 +163,9 @@ def make_video_model(
         readout=readout,
         shifter=shifter,
         modulator=None,
-        elu_offset=0.0,
-        nonlinearity_type="elu",
-        nonlinearity_config=None,
+        elu_offset=elu_offset,
+        nonlinearity_type=nonlinearity_type,
+        nonlinearity_config=nonlinearity_config,
         use_gru=use_gru,
         gru_module=gru_module,
         twoD_core=twoD_core,

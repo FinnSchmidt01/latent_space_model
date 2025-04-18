@@ -42,6 +42,7 @@ from sensorium.utility.scores import get_correlations, get_poisson_loss
 from tqdm import tqdm
 
 import wandb
+from eval import eval_model
 from neuralpredictors.layers.cores.conv2d import Stacked2dCore
 from neuralpredictors.layers.encoders.mean_variance_functions import fitted_zig_mean
 from neuralpredictors.layers.encoders.zero_inflation_encoders import ZIGEncoder
@@ -51,6 +52,8 @@ from neuralpredictors.training import LongCycler, early_stopping
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(device)
 # torch.cuda.set_device(device)
+
+wandb.login(key="376c49156413b3cf762ba25d8ba6cbf9eb3411c9")
 
 import os
 
@@ -163,13 +166,21 @@ class WarmupCosineAnnealingLR(torch.optim.lr_scheduler._LRScheduler):
                 )
         return [lr for _ in self.base_lrs]
 
-
+'''
 paths = [
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20/",
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29712-5-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
     "/mnt/lustre-grete/usr/u11302/Data/dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
+]
+'''
+paths = [
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29156-11-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29228-2-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29234-6-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29513-3-5-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29514-2-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
 ]
 print("Loading data..")
 data_loaders = mouse_video_loader(
@@ -200,15 +211,15 @@ print("Data loaded")
 
 cell_coordinates = {}
 data_keys = [
-    "dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20",
-    "dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20",
-    "dynamic29712-5-9-Video-9b4f6a1a067fe51e15306b9628efea20",
-    "dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20",
-    "dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20",
+    "dynamic29156-11-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29228-2-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29234-6-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29513-3-5-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29514-2-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
 ]
 for data_key in data_keys:
     cell_coordinates_path = (
-        "/mnt/lustre-grete/usr/u11302/Data/"
+        "/scratch-grete/projects/nim00012/original_sensorium_2023/"
         + data_key
         + "/meta/neurons/cell_motor_coordinates.npy"
     )
@@ -742,9 +753,7 @@ def standard_trainer(
         if save_checkpoints:
             if validation_correlation > best_validation_correlation:
                 torch.save(
-                    # model.state_dict(), f"{checkpoint_save_path}best.pth"
-                    {"model_state_dict": model.state_dict()},
-                    "model.pth",
+                    model.state_dict(), f"{checkpoint_save_path}best.pth"
                 )
                 best_validation_correlation = validation_correlation
 
@@ -780,7 +789,7 @@ def standard_trainer(
         # torch.save(
         # model.state_dict(), f"toymodels2/temp_save.pth"
         # )
-
+    
         print(
             f"Epoch {epoch}, Batch {batch_no}, Train loss {loss}, Validation loss {val_loss}"
         )
@@ -789,8 +798,8 @@ def standard_trainer(
         ema_values.append(validation_correlation)
         ema = calculate_ema(torch.tensor(ema_values), ema_span)[-1]
 
-        linear_layer = model.encoder.linear[data_key]
-        reg_term = linear_layer.weight.abs().sum()
+        #linear_layer = model.encoder.linear[data_key]
+        #reg_term = linear_layer.weight.abs().sum()
 
         if use_wandb:
             wandb_dict = {
@@ -817,17 +826,15 @@ def standard_trainer(
                 # "Q Last": q_last,
                 "Q Mean": torch.mean(q),
                 "Learning rate": lr,
-                "kl_divergence": kl_div,
-                "latent_means": torch.mean(latent_means),
-                "latent_variance": latent_means.var(),
-                "latent_max": latent_means.max(),
-                "latent_min": latent_means.min(),
-                "latent_sigma": sigma_squared2,
+                #"kl_divergence": kl_div,
+                #"latent_means": torch.mean(latent_means),
+                #"latent_variance": latent_means.var(),
+                #"latent_max": latent_means.max(),
+                #"latent_min": latent_means.min(),
+                #"latent_sigma": sigma_squared2,
                 # "latent_feature_q": torch.norm(latent_feature_q, dim = 0).mean(),
                 # "latent_feature_theta": torch.norm(latent_feature_theta, dim = 0).mean(),
-                "regularization term": reg_term,
-                # "log_likelihood": log_likelihood,
-                # "prior_correlation": validation_correlation_uncut,
+                #"regularization term": reg_term,
             }
             wandb.log(wandb_dict)
 
@@ -878,12 +885,14 @@ def standard_trainer(
     else:
         non_linearity = False
 
+    
+
     return score
 
 
 factorised_3D_core_dict = dict(
     input_channels=1,
-    hidden_channels=[32, 64, 128],
+    hidden_channels=[32, 64, 16],
     spatial_input_kernel=(11, 11),
     temporal_input_kernel=11,
     spatial_hidden_kernel=(5, 5),
@@ -980,7 +989,7 @@ trainer_config = {
 }
 
 # load means and varaince of neurons for Moment fitting
-base_dir = base_dir = "/mnt/lustre-grete/usr/u11302/Data/"
+base_dir = base_dir = "/scratch-grete/projects/nim00012/original_sensorium_2023/"
 mean_variance_dict = load_mean_variance(base_dir, device)
 
 # determine maximal number of neurons
@@ -1003,7 +1012,7 @@ encoder_dict["hidden_dim"] = 42  # 42
 encoder_dict["hidden_gru"] = 20  # 20
 encoder_dict["output_dim"] = output_dim
 encoder_dict["hidden_layers"] = 1
-encoder_dict["n_samples"] = 100
+encoder_dict["n_samples"] = 70
 encoder_dict["mice_dim"] = 0
 encoder_dict["use_cnn"] = False
 encoder_dict["residual"] = False
@@ -1034,7 +1043,7 @@ for data_key in data_keys:
         :, 0 : position_mlp["input_size"]
     ]  # adapt cell_coordinates to MLP input (either xy corrdinates or xyz)
 
-
+latent = True
 zig_model = ZIGEncoder(
     core=factorised_3d_model.core,
     readout=factorised_3d_model.readout,
@@ -1043,7 +1052,7 @@ zig_model = ZIGEncoder(
     k_image_dependent=False,
     loc_image_dependent=False,
     mle_fitting=mean_variance_dict,
-    latent=True,
+    latent=latent,
     encoder=encoder_dict,
     # decoder = decoder_dict,
     norm_layer="layer_flex",
@@ -1055,14 +1064,17 @@ zig_model = ZIGEncoder(
     # position_features = position_mlp,
     # behavior_in_encoder = behavior_mlp
 )
+if not latent:
+    zig_model.flow = False
 # zig_model.load_state_dict(torch.load('toymodels2/zig_no_brain_posbest.pth', map_location=device),strict=False)
-zig_model.load_state_dict(
-    torch.load("toymodels/zig_nobehaviorbest.pth", map_location=device), strict=False
-)
-# zig_model.load_state_dict(torch.load('toymodels/zig_nobehaviorbest.pth', map_location=device),strict=False)
+#zig_model.load_state_dict(
+    #torch.load("toymodels/zig_nobehaviorbest.pth", map_location=device), strict=False
+#)
+#zig_model.load_state_dict(torch.load('models/ZIG_differentmicebest.pth', map_location=device),strict=False)
+
 # zig_model.load_state_dict(torch.load('models_differentdropout/42seedacross_time_dropout0.5drop_probbest.pth', map_location=device),strict=False)
 # Print all keys in the loaded state dictionary
-
+zig_model.load_state_dict(torch.load('models/16_core_channels_zig_mice6_10best.pth', map_location=device),strict=False)
 
 print("Out_dim", encoder_dict["output_dim"])
 lr_inint = 5e-3
@@ -1089,7 +1101,7 @@ validation_score = standard_trainer(
     111,
     use_wandb=True,
     wandb_project="toymodel",
-    wandb_name="12dim_test_nodecoder",
+    wandb_name="16_core_channels_latent_mice6_10",
     wandb_entity=None,
     # loss_function= "combinedLoss",
     loss_function="ZIGLoss",
@@ -1104,7 +1116,7 @@ validation_score = standard_trainer(
     patience=12,  # 12#8,
     scheduler_patience=10,  # 10#6,
     # k_reg = mean_variance_dict,
-    checkpoint_save_path="toymodels2/12dim_test_nodecoder",
+    checkpoint_save_path="models/16_core_channels_latent_mice6_10",
 )
 validation_score
 torch.cuda.empty_cache()

@@ -148,12 +148,12 @@ def load_data(device, cut=False):
     Load data using the mouse_video_loader.
     """
     paths = [
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29712-5-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
-    ]
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29156-11-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29228-2-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29234-6-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29513-3-5-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "/scratch-grete/projects/nim00012/original_sensorium_2023/dynamic29514-2-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
+]
 
     print("Loading data...")
     data_loaders = mouse_video_loader(
@@ -183,15 +183,15 @@ def load_data(device, cut=False):
 
     cell_coordinates = {}
     data_keys = [
-        "dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20",
-        "dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20",
-        "dynamic29712-5-9-Video-9b4f6a1a067fe51e15306b9628efea20",
-        "dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20",
-        "dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20",
-    ]
+    "dynamic29156-11-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29228-2-10-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29234-6-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29513-3-5-Video-8744edeac3b4d1ce16b680916b5267ce/",
+    "dynamic29514-2-9-Video-8744edeac3b4d1ce16b680916b5267ce/",
+]
 
     for data_key in data_keys:
-        cell_coordinates_path = f"/mnt/lustre-grete/usr/u11302/Data/{data_key}/meta/neurons/cell_motor_coordinates.npy"
+        cell_coordinates_path = f"/scratch-grete/projects/nim00012/original_sensorium_2023/{data_key}/meta/neurons/cell_motor_coordinates.npy"
         coords = np.load(cell_coordinates_path)
         coords = torch.tensor(coords, device=device, dtype=torch.float32)
         mean_coords = coords.mean(dim=0, keepdim=True)
@@ -226,7 +226,7 @@ def load_model(
 
     factorised_3D_core_dict = dict(
         input_channels=1,
-        hidden_channels=[32, 64, 128],
+        hidden_channels=[32, 64, 32],
         spatial_input_kernel=(11, 11),
         temporal_input_kernel=11,
         spatial_hidden_kernel=(5, 5),
@@ -298,7 +298,7 @@ def load_model(
     )
 
     # load means and varaince of neurons for Moment fitting
-    base_dir = base_dir = "/mnt/lustre-grete/usr/u11302/Data/"
+    base_dir = base_dir = "/scratch-grete/projects/nim00012/original_sensorium_2023/"
     mean_variance_dict = load_mean_variance(base_dir, device)
 
     model = ZIGEncoder(
@@ -321,6 +321,7 @@ def load_model(
         position_features=position_mlp,
         behavior_in_encoder=behavior_mlp,
     ).to(device)
+
 
     # Compare the keys between the loaded state_dict and the model's state_dict
     loaded_state_dict = torch.load(model_path, map_location=device)
@@ -507,9 +508,9 @@ if __name__ == "__main__":
     # paths = ['models/baseline_sensorium_nobehaviorbest.pth'] #Poisson Model
     # paths = ['models/zig_best.pth'] #Pure ZIG model, no latent
     paths = [
-        "models/latent_12dimbest.pth"
+        "models/32_core_channels_latent_mice6_10best.pth"
     ]  # latent model as in workshop paper, latent dim is 12
-
+    print(paths)
     for model_path in paths:
 
         samples = 100  # number of samples drawn from prior for computing approximate posterior and correlation
@@ -518,7 +519,7 @@ if __name__ == "__main__":
         )
         latent = True
         latent_dim = [42, 20, 12]  # for low-dim latent model used in workshop paper
-        # latent_dim = [250, 200, 200]  # for high-dim model
+        #latent_dim = [250, 200, 150]  # for high-dim model
         neuron_position_info = True  # False for models without infomation about neurons postion -> important for cortical maps models
 
         encoder_dict = {
@@ -543,7 +544,7 @@ if __name__ == "__main__":
             "kernel_size": [5, 11],
             "channel_size": [12, 12],
         }
-        # decoder_dict = None
+        decoder_dict = None
 
         # position_mlp = {
         #    "input_size": 3,
@@ -575,7 +576,7 @@ if __name__ == "__main__":
                 flow=False,
                 dropout_prob=None,
                 grid_mean_predictor=neuron_position_info,
-                position_features=position_mlp,
+                position_features=None,
                 behavior_in_encoder=None,
             )
 

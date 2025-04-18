@@ -49,7 +49,7 @@ def load_mean_variance(base_dir, device):
 
 if __name__ == "__main__":
     # Base directory containing the folders
-    base_dir = "/mnt/lustre-grete/usr/u11302/Data/"
+    base_dir = "/scratch-grete/projects/nim00012/original_sensorium_2023/"
 
     # List of folders
     folders = os.listdir(base_dir)
@@ -131,10 +131,10 @@ if __name__ == "__main__":
                 mean_file_path = os.path.join(base_dir + folder, "new_mean.npy")
                 variance_file_path = os.path.join(base_dir + folder, "new_variance.npy")
 
-                # np.save(mean_file_path, mean_array)
-                # np.save(variance_file_path, variance_array)
+                np.save(mean_file_path, mean_array)
+                np.save(variance_file_path, variance_array)
 
                 k_file_path = os.path.join(base_dir, folder, "k_fitted.npy")
-                # np.save(k_file_path, np.array(k_params))
+                np.save(k_file_path, np.array(k_params))
 
     print("Mean and variance files have been saved for each folder.")

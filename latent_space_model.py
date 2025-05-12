@@ -1,11 +1,6 @@
 seed = 42
 import sys
-
 sys.path.append("/srv/user/turishcheva/sensorium_replicate/sensorium_2023/")
-# sys.path.append('/srv/user/turishcheva/sensorium_replicate/neuralpredictors/')
-# sys.path.append('/srv/user/turishcheva/from_ayush/ayush_april/new_neuropred_code/neuralpredictors')
-# sys.path.append('/srv/user/turishcheva/from_ayush/ayush_april/sensorium_2023')
-
 from functools import partial
 
 import numpy as np

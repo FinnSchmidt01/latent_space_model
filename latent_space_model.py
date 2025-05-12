@@ -1055,12 +1055,9 @@ zig_model = ZIGEncoder(
     # position_features = position_mlp,
     # behavior_in_encoder = behavior_mlp
 )
-# zig_model.load_state_dict(torch.load('toymodels2/zig_no_brain_posbest.pth', map_location=device),strict=False)
 zig_model.load_state_dict(
-    torch.load("toymodels/zig_nobehaviorbest.pth", map_location=device), strict=False
+    torch.load("models/zig_best.pth", map_location=device), strict=False
 )
-# zig_model.load_state_dict(torch.load('toymodels/zig_nobehaviorbest.pth', map_location=device),strict=False)
-# zig_model.load_state_dict(torch.load('models_differentdropout/42seedacross_time_dropout0.5drop_probbest.pth', map_location=device),strict=False)
 # Print all keys in the loaded state dictionary
 
 

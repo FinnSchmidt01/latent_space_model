@@ -19,7 +19,10 @@ cd neuralpredictors
 git checkout latent_space_model
 pip install -e .
 
-Do the same for the nnfabrik repository 
+# Install nnfabrik in editable mode
+cd nnfabrik
+pip install -e .
+```
 Before using the training/evaluation scripts, download the mice data [here](https://gin.g-node.org/pollytur/sensorium_2023_dataset) and run 
 ```
 python moments.py 

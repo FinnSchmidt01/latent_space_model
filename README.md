@@ -8,10 +8,9 @@ To install requirements:
 conda env create -f environment.yml
 
 ```
-After setting up the environment one has to install two additional repositories as packages:
+After setting up the environment one has to install two additional repositories as packages. Download the neuralpredictors repository [here](https://anonymous.4open.science/r/neuralpredictors-D2FE/):
 ```bash
-# Clone the neuralpredictors and nnfabrik repository
-git clone git@github.com:FinnSchmidt01/neuralpredictors.git
+# Clone the nnfabrik repository
 git clone git@github.com:sinzlab/nnfabrik.git
 
 # Install Neuralpredictors in editable mode

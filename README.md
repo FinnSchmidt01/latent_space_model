@@ -65,6 +65,6 @@ position_mlp = {
 
 ## Pre-trained Models
 
-You can download pretrained models here:
+You can download the pretrained models, which are the most relevant for the paper, here:
 
-- [My awesome model](https://drive.google.com/mymodel.pth) trained on ImageNet using parameters x,y,z. 
+- [Models](https://anonymous.4open.science/r/Models-E234/)   

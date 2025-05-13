@@ -36,7 +36,7 @@ To train the model(s) in the paper, run the `latent_space_model.py` file. Aside 
 
 - For training the video-only ZIG model, use the `zig_model` and set `latent = False` in the `ZIGEncoder` class. Further, use `loss_function=ZIGLoss` in the standard trainer function.
   
-- For training a latent model, use the `zig_model` and set `latent = True` in the `ZIGEncoder` class. Further, use `loss_function=ZIGLoss` in the standard trainer function. To adjust the latent dimension $$k$$ change `output_dim=12`, by default $$k=12$$.
+- For training a latent model, use the `zig_model` and set `latent = True` in the `ZIGEncoder` class. Further, use `loss_function=ZIGLoss` in the standard trainer function. To adjust the latent dimension k change `output_dim=12`, by default k=12.
   
 - For training a latent model, where the mapping of the latent feature vectors is determined based on cortical positions, additionally set `position_features = position_mlp` in the ZIGEncoder class and adjust the `position_mlp` dictionary if needed.
 
@@ -56,6 +56,7 @@ python eval.py
 - To evaluate a latent model, keep `latent = True` and adjust the `latent_dim` if needed.
   
 - To evaluate latent models without cortical positions, set `neuron_position_info = False`.  For the latent model, which maps the latent feature vectors based on cortical positions, set
+  
 ```
 position_mlp = {
              "input_size": 3,

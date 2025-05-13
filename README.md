@@ -60,9 +60,9 @@ python eval.py
 - To evaluate latent models without cortical positions, set `neuron_position_info = False`.  For the latent model, which maps the latent feature vectors based on cortical positions, set
 ```
 position_mlp = {
-        #    "input_size": 3,
-        #    "layer_sizes": [6, 12]
-        # }
+             "input_size": 3,
+             "layer_sizes": [6, 12]
+          }
 ```
 
 ## Pre-trained Models

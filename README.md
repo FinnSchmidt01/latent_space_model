@@ -32,7 +32,7 @@ Data paths must be adapted before running any python script.
 
 ## Training
 
-To train the model(s) in the paper, run the 'latent_space_model.py' file. Aside from the adjustments listed below, all other parameters are identical to those used in the paper’s models.
+To train the model(s) in the paper, run the `latent_space_model.py` file. Aside from the adjustments listed below, all other parameters are identical to those used in the paper’s models.
 
 - For training the Poisson baseline model, use the 'factorised_3d_model' and 'loss_function=PoissonLoss' in the 'standard_trainer' function. Set 'out_channels=1' and 'zig=False' in the 'readout_dict'. No other parameters have to be changed. 
 

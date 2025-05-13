@@ -12,8 +12,9 @@ The conda environment YAML file for this repository is located in the `infrastru
 To get started, clone the `neuralpredictors` repository and install the `latent_space_model` branch to complete the setup:
 
 ```bash
-# Clone the neuralpredictors repository
+# Clone the neuralpredictors and nnfabrik repository
 git clone git@github.com:FinnSchmidt01/neuralpredictors.git
+git clone git@github.com:sinzlab/nnfabrik.git
 
 # Navigate to the repository
 cd neuralpredictors
@@ -24,3 +25,4 @@ git checkout latent_space_model
 # Install the repository in editable mode
 pip install -e .
 
+Do the same for the nnfabrik repository 

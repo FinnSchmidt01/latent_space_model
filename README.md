@@ -32,13 +32,17 @@ Data paths must be adapted before running any python script.
 
 ## Training
 
-To train the model(s) in the paper, run the 'latent_space_model.py' file.
-For training the Poisson baseline model, use the 'factorised_3d_model' and 'loss_function=PoissonLoss' in the 'standard_trainer' function. Set 'out_channels=1' and 'zig=False' in the 'readout_dict'. No other parameters have to be changed. 
-For training the video-only ZIG model, use the 'zig_model' and set 'latent = False' in the 'ZIGEncoder' class. Further, use 'loss_function=ZIGLoss' in the standard trainer function.
-For training a latent model, use the 'zig_model' and set 'latent = True' in the 'ZIGEncoder' class. Further, use 'loss_function=ZIGLoss' in the standard trainer function. To adjust the latent dimension $$k$$ change 'output_dim=12', by default $$k=12$$. 
-For training a latent model, where the mapping of the latent feature vectors is determined based on cortical positions, additionally set 'position_features = position_mlp' in the ZIGEncoder class.
+To train the model(s) in the paper, run the 'latent_space_model.py' file. Aside from the adjustments listed below, all other parameters are identical to those used in the paper’s models.
 
->📋  Describe how to train the models, with example commands on how to train the models in your paper, including the full training procedure and appropriate hyperparameters.
+- For training the Poisson baseline model, use the 'factorised_3d_model' and 'loss_function=PoissonLoss' in the 'standard_trainer' function. Set 'out_channels=1' and 'zig=False' in the 'readout_dict'. No other parameters have to be changed. 
+
+- For training the video-only ZIG model, use the 'zig_model' and set 'latent = False' in the 'ZIGEncoder' class. Further, use 'loss_function=ZIGLoss' in the standard trainer function.
+  
+- For training a latent model, use the 'zig_model' and set 'latent = True' in the 'ZIGEncoder' class. Further, use 'loss_function=ZIGLoss' in the standard trainer function. To adjust the latent dimension $$k$$ change 'output_dim=12', by default $$k=12$$.
+  
+- For training a latent model, where the mapping of the latent feature vectors is determined based on cortical positions, additionally set 'position_features = position_mlp' in the ZIGEncoder class.
+
+
 
 ## Evaluation
 

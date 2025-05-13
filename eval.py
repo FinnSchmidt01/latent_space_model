@@ -536,14 +536,14 @@ if __name__ == "__main__":
             "pretrained": True,
         }
 
-        decoder_dict = {
-            "hidden_layers": 1,
-            "hidden_dim": latent_dim[2],
-            "use_cnn": False,
-            "kernel_size": [5, 11],
-            "channel_size": [12, 12],
-        }
-        # decoder_dict = None
+        # decoder_dict = {
+        #    "hidden_layers": 1,
+        #    "hidden_dim": latent_dim[2],
+        #    "use_cnn": False,
+        #    "kernel_size": [5, 11],
+        #    "channel_size": [12, 12],
+        # }
+        decoder_dict = None
 
         # position_mlp = {
         #    "input_size": 3,

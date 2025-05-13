@@ -34,13 +34,13 @@ Data paths must be adapted before running any python script.
 
 To train the model(s) in the paper, run the `latent_space_model.py` file. Aside from the adjustments listed below, all other parameters are identical to those used in the paper’s models.
 
-- For training the Poisson baseline model, use the 'factorised_3d_model' and 'loss_function=PoissonLoss' in the 'standard_trainer' function. Set 'out_channels=1' and 'zig=False' in the 'readout_dict'. No other parameters have to be changed. 
+- For training the Poisson baseline model, use the `factorised_3d_model` and `loss_function=PoissonLoss` in the `standard_trainer` function. Set `out_channels=1` and `zig=False` in the `readout_dict`. No other parameters have to be changed. 
 
-- For training the video-only ZIG model, use the 'zig_model' and set 'latent = False' in the 'ZIGEncoder' class. Further, use 'loss_function=ZIGLoss' in the standard trainer function.
+- For training the video-only ZIG model, use the `zig_model` and set `latent = False` in the `ZIGEncoder` class. Further, use `loss_function=ZIGLoss` in the standard trainer function.
   
-- For training a latent model, use the 'zig_model' and set 'latent = True' in the 'ZIGEncoder' class. Further, use 'loss_function=ZIGLoss' in the standard trainer function. To adjust the latent dimension $$k$$ change 'output_dim=12', by default $$k=12$$.
+- For training a latent model, use the `zig_model` and set `latent = True` in the `ZIGEncoder` class. Further, use `loss_function=ZIGLoss` in the standard trainer function. To adjust the latent dimension $$k$$ change `output_dim=12`, by default $$k=12$$.
   
-- For training a latent model, where the mapping of the latent feature vectors is determined based on cortical positions, additionally set 'position_features = position_mlp' in the ZIGEncoder class.
+- For training a latent model, where the mapping of the latent feature vectors is determined based on cortical positions, additionally set `position_features = position_mlp` in the ZIGEncoder class.
 
 
 
@@ -51,10 +51,13 @@ To evaluate the models in terms of log_likelihood and correlation, run
 ```eval
 python eval.py 
 ```
-To evaluate the Poisson baseline model, set 'out_channels = 1'.
-To evaluate  the video-only ZIG model, keep 'out_channels = 2' but set 'latent = False' 
-To evaluate a latent model, keep 'latent = True' and adjust the 'latent_dim' if needed. 
-To evaluate latent models without cortical positions, set 'neuron_position_info = False'.  For the latent model, which maps the latent feature vectors based on cortical positions, set
+- To evaluate the Poisson baseline model, set `out_channels = 1`.
+  
+- To evaluate  the video-only ZIG model, keep `out_channels = 2` but set `latent = False`.
+  
+- To evaluate a latent model, keep `latent = True` and adjust the `latent_dim` if needed.
+  
+- To evaluate latent models without cortical positions, set `neuron_position_info = False`.  For the latent model, which maps the latent feature vectors based on cortical positions, set
 ```
 position_mlp = {
         #    "input_size": 3,

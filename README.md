@@ -6,7 +6,6 @@
 To install requirements:
 ```setup
 conda env create -f environment.yml
-
 ```
 After setting up the environment one has to install two additional repositories as packages. Download the neuralpredictors repository [here](https://anonymous.4open.science/r/neuralpredictors-D2FE/):
 ```bash

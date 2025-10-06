@@ -13,7 +13,7 @@ def model_predictions(
     model,
     dataloader,
     data_key,
-    device="cpu",
+    device="cuda:0",
     skip=50,
     deeplake_ds=False,
     prior=False,
@@ -54,7 +54,8 @@ def model_predictions(
                 batch_kwargs = {
                     'videos': video,
                     'pupil_center_core': batch['eye_tracker'][:, :, 2:].transpose(2, 1).to(device),
-                    'responses': resp
+                    'responses': responses,
+                    'pupil_center': batch['eye_tracker'][:, :, 2:].transpose(2, 1).to(device),
                 }
                 images = video
                 out_predicts = True
@@ -84,7 +85,7 @@ def model_predictions(
                         neuron_mask = random.sample(
                             range(n_neurons // 4, n_neurons), n_neurons_masked
                         )
-
+                    # bug is somewhere here?
                     out = model(
                         images,
                         data_key=data_key,

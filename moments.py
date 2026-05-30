@@ -48,8 +48,11 @@ def load_mean_variance(base_dir, device):
 
 
 if __name__ == "__main__":
-    # Base directory containing the folders
-    base_dir = "/mnt/lustre-grete/usr/u11302/Data/"
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--data_dir", type=str, required=True, help="Root directory containing the dynamic* session folders")
+    args = parser.parse_args()
+    base_dir = args.data_dir
 
     # List of folders
     folders = os.listdir(base_dir)
@@ -128,13 +131,13 @@ if __name__ == "__main__":
                 variance_array = np.nanvar(filtered_array, axis=1)
 
                 # Save the mean and variance arrays
-                mean_file_path = os.path.join(base_dir + folder, "new_mean.npy")
-                variance_file_path = os.path.join(base_dir + folder, "new_variance.npy")
+                mean_file_path = os.path.join(base_dir, folder, "new_mean.npy")
+                variance_file_path = os.path.join(base_dir, folder, "new_variance.npy")
 
                 np.save(mean_file_path, mean_array)
                 np.save(variance_file_path, variance_array)
 
                 k_file_path = os.path.join(base_dir, folder, "k_fitted.npy")
-                # np.save(k_file_path, np.array(k_params))
+                np.save(k_file_path, np.array(k_params))
 
     print("Mean and variance files have been saved for each folder.")

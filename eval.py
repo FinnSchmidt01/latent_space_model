@@ -76,8 +76,8 @@ def full_objective(
         nonzero_mask = nonzero_mask.unsqueeze(-1)
         original_data = original_data.unsqueeze(-1)
 
-        if model.flow:
-            if model.flow_base == "Gaussian":
+        if getattr(model, 'flow', None):
+            if getattr(model, 'flow_base', None) == "Gaussian":
                 zig_loss, _ = criterion(
                     model,
                     data_key,
@@ -143,17 +143,18 @@ def full_objective(
     return averagedlog_likelihood.detach().cpu().numpy()
 
 
-def load_data(device, cut=False):
+def load_data(device, cut=False, data_dir=None):
     """
     Load data using the mouse_video_loader.
     """
-    paths = [
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29712-5-9-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
-        "/mnt/lustre-grete/usr/u11302/Data/dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20/",
+    session_ids = [
+        "dynamic29515-10-12-Video-9b4f6a1a067fe51e15306b9628efea20",
+        "dynamic29623-4-9-Video-9b4f6a1a067fe51e15306b9628efea20",
+        "dynamic29712-5-9-Video-9b4f6a1a067fe51e15306b9628efea20",
+        "dynamic29647-19-8-Video-9b4f6a1a067fe51e15306b9628efea20",
+        "dynamic29755-2-8-Video-9b4f6a1a067fe51e15306b9628efea20",
     ]
+    paths = [os.path.join(data_dir, s) + "/" for s in session_ids]
 
     print("Loading data...")
     data_loaders = mouse_video_loader(
@@ -166,7 +167,7 @@ def load_data(device, cut=False):
         include_behavior=True,
         include_pupil_centers=True,
         to_cut=cut,
-        cuda=device != "cpu",
+        cuda=device == "cuda",
     )
 
     data_loaders_nobehavior = mouse_video_loader(
@@ -178,7 +179,7 @@ def load_data(device, cut=False):
         offset=-1,
         include_behavior=False,
         include_pupil_centers=False,
-        cuda=device != "cpu",
+        cuda=device == "cuda",
     )
 
     cell_coordinates = {}
@@ -191,7 +192,7 @@ def load_data(device, cut=False):
     ]
 
     for data_key in data_keys:
-        cell_coordinates_path = f"/mnt/lustre-grete/usr/u11302/Data/{data_key}/meta/neurons/cell_motor_coordinates.npy"
+        cell_coordinates_path = os.path.join(data_dir, data_key, "meta", "neurons", "cell_motor_coordinates.npy")
         coords = np.load(cell_coordinates_path)
         coords = torch.tensor(coords, device=device, dtype=torch.float32)
         mean_coords = coords.mean(dim=0, keepdim=True)
@@ -213,6 +214,7 @@ def load_model(
     device,
     data_loaders,
     data_loaders_nobehavior,
+    data_dir=None,
     grid_mean_predictor=None,
     position_mlp=None,
     behavior_mlp=None,
@@ -298,7 +300,7 @@ def load_model(
     )
 
     # load means and varaince of neurons for Moment fitting
-    base_dir = base_dir = "/mnt/lustre-grete/usr/u11302/Data/"
+    base_dir = data_dir
     mean_variance_dict = load_mean_variance(base_dir, device)
 
     model = ZIGEncoder(
@@ -355,7 +357,15 @@ def load_model(
         print(loaded_state_dict[key].shape)
 
     if outchannels > 1:  # this is for ZIG/ latent
-        model.load_state_dict(torch.load(model_path, map_location=device))
+        load_result = model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
+        if load_result.missing_keys:
+            print(f"\nWARNING: {len(load_result.missing_keys)} keys in model not found in checkpoint (random init):")
+            for k in load_result.missing_keys:
+                print(f"  MISSING: {k}")
+        if load_result.unexpected_keys:
+            print(f"\nWARNING: {len(load_result.unexpected_keys)} keys in checkpoint not used by model (discarded):")
+            for k in load_result.unexpected_keys:
+                print(f"  DISCARDED: {k}")
     else:
         factorised_3d_model.load_state_dict(
             torch.load(model_path, map_location=device), strict=False
@@ -381,6 +391,7 @@ def eval_model(
     grid_mean_predictor=True,
     position_features=None,
     behavior_in_encoder=None,
+    data_dir=None,
 ):
     """
     Evaluate model, compute its prediction correlation, and log-likelihood.
@@ -406,7 +417,7 @@ def eval_model(
     set_random_seed(42)
 
     # load data with and without behavior
-    data_loaders, data_loaders_nobehavior, cell_coordinates = load_data(device, cut)
+    data_loaders, data_loaders_nobehavior, cell_coordinates = load_data(device, cut, data_dir=data_dir)
 
     # determine maximal number of neurons for input dim of encoder
     n_neurons = []
@@ -432,6 +443,7 @@ def eval_model(
         device,
         data_loaders,
         data_loaders_nobehavior,
+        data_dir=data_dir,
         grid_mean_predictor=grid_mean_predictor,
         position_mlp=position_features,
         behavior_mlp=behavior_in_encoder,
@@ -439,8 +451,8 @@ def eval_model(
 
     log_likelihoods = []
     # Get log likelihood function. It is either zero-inflated Gaussian for a Gaussian flow or zero-inflated Gamma in any other case
-    if model.flow:
-        if model.flow_base == "Gaussian":
+    if getattr(model, 'flow', None):
+        if getattr(model, 'flow_base', None) == "Gaussian":
             zif_loss_instance = zero_inflated_losses.ZIFLoss()
             criterion = zif_loss_instance.get_slab_logl
         else:
@@ -451,6 +463,9 @@ def eval_model(
         criterion = zig_loss_instance.get_slab_logl
 
     model.eval()
+    # ZIGEncoder only sets model.flow when latent=True; ensure it always exists
+    if not hasattr(model, 'flow'):
+        model.flow = None
 
     # Compute correlations
     with torch.no_grad():
@@ -464,7 +479,7 @@ def eval_model(
             forward_prior=prior,
             n_samples=n_samples,
             dropout_prob=dropout_prob,
-            flow=model.flow,
+            flow=getattr(model, 'flow', None),
             cell_coordinates=cell_coordinates if model.position_features else None,
         )
 
@@ -502,84 +517,87 @@ def eval_model(
 
 
 if __name__ == "__main__":
+    import argparse, traceback as _tb, sys as _sys
+    _sys.excepthook = lambda *a: _tb.print_exception(*a)  # override datajoint's hook
+
+    parser = argparse.ArgumentParser(description="Evaluate latent space neural predictive model")
+    parser.add_argument("--data_dir", type=str, required=True, help="Root directory containing the dynamic* session folders")
+    parser.add_argument("--model_path", type=str, default="models/latent_12dimbest.pth", help="Path to model checkpoint (.pth)")
+    parser.add_argument("--latent_dim", type=int, nargs=3, default=[42, 20, 12], metavar=("HIDDEN", "GRU", "OUT"),
+                        help="Encoder dims: hidden_dim, hidden_gru, output_dim (default: 42 20 12)")
+    parser.add_argument("--no_latent", action="store_true", help="Disable latent space (evaluate pure ZIG model)")
+    parser.add_argument("--with_decoder", action="store_true", help="Enable GRU decoder (decoder hidden_dim = latent_dim[2])")
+    args = parser.parse_args()
+
     # set decoder_dict to None for model with neuron postions and neuron_position_info to False, and use position_mlp dict
-    # paths = ['models/[6,12]dim_no_brain_positions_pretrain_nodecoderbest.pth'] #model which assign latent feature vectors based on position
-    # paths = ['models/baseline_sensorium_nobehaviorbest.pth'] #Poisson Model
-    # paths = ['models/zig_best.pth'] #Pure ZIG model, no latent
-    paths = [
-        "models/latent_12dimbest.pth"
-    ]  # latent model as in workshop paper, latent dim is 12
+    # --model_path models/zig_best.pth --no_latent                                   # video-only ZIG model (baseline)
+    # --model_path models/latent_12dimbest.pth                                       # 12-dim latent, no decoder at inference
+    # --model_path models/latent_12dimbest.pth --with_decoder                        # 12-dim latent, with decoder
+    # --model_path models/250_200_80latentbest.pth --latent_dim 250 200 80 --with_decoder  # high-dim latent
 
-    for model_path in paths:
+    samples = 100  # number of samples drawn from prior for computing approximate posterior and correlation
+    out_channels = 2  # 2 for ZIG/latent, 1 for Poisson baseline
+    latent = not args.no_latent
+    latent_dim = args.latent_dim
+    neuron_position_info = True  # False for models without infomation about neurons postion -> important for cortical maps models
 
-        samples = 100  # number of samples drawn from prior for computing approximate posterior and correlation
-        out_channels = (
-            2  # number of feature vectors after readout -> 2 for ZIG, 1 for Poisson
-        )
-        latent = True
-        latent_dim = [42, 20, 12]  # for low-dim latent model used in workshop paper
-        # latent_dim = [250, 200, 200]  # for high-dim model
-        neuron_position_info = True  # False for models without infomation about neurons postion -> important for cortical maps models
+    encoder_dict = {
+        "hidden_dim": latent_dim[0],
+        "hidden_gru": latent_dim[1],
+        "output_dim": latent_dim[2],
+        "hidden_layers": 1,
+        "n_samples": 100,
+        "mice_dim": 0,
+        "use_cnn": False,
+        "residual": False,
+        "kernel_size": [11, 5, 5],
+        "channel_size": [32, 32, 20],
+        "use_resnet": False,
+        "pretrained": True,
+    }
 
-        encoder_dict = {
-            "hidden_dim": latent_dim[0],  # 42
-            "hidden_gru": latent_dim[1],
-            "output_dim": latent_dim[2],  # 12
+    if args.with_decoder:
+        decoder_dict = {
             "hidden_layers": 1,
-            "n_samples": 100,
-            "mice_dim": 0,  # 18
+            "hidden_dim": latent_dim[2],
             "use_cnn": False,
-            "residual": False,
-            "kernel_size": [11, 5, 5],
-            "channel_size": [32, 32, 20],
-            "use_resnet": False,
-            "pretrained": True,
+            "kernel_size": [5, 11],
+            "channel_size": [12, 12],
         }
-
-        # decoder_dict = {
-        #    "hidden_layers": 1,
-        #    "hidden_dim": latent_dim[2],
-        #    "use_cnn": False,
-        #    "kernel_size": [5, 11],
-        #    "channel_size": [12, 12],
-        # }
+    else:
         decoder_dict = None
 
-        # position_mlp = {
-        #    "input_size": 3,
-        #    "layer_sizes": [6, 12]
-        # }
-        position_mlp = None
+    # position_mlp = {
+    #    "input_size": 3,
+    #    "layer_sizes": [6, 12]
+    # }
+    position_mlp = None
 
-        # behavior_mlp = {
-        #    "input_size": 4,  # Set to 4 if pupil_center should be included, otherwise set to 2
-        #    "layer_sizes": [4, 6]
-        # }
+    correlations = []
 
-        correlations = []
+    for prior in [True, False]:
+        # If latent is not used, we need to compute correlation only once as there is no conditioned correlation
+        if (not latent) and prior:
+            continue
 
-        for prior in [True, False]:
-            # If latent is not used, we need to compute correlation only once as there is no conditioned correlation
-            if (not latent) and prior:
-                continue
+        log_likelihood, correlation = eval_model(
+            args.model_path,
+            out_channels,
+            latent,
+            prior,
+            encoder_dict=encoder_dict,
+            decoder_dict=decoder_dict,
+            cut=False,
+            n_samples=samples,
+            flow=False,
+            dropout_prob=None,
+            grid_mean_predictor=neuron_position_info,
+            position_features=position_mlp,
+            behavior_in_encoder=None,
+            data_dir=args.data_dir,
+        )
 
-            log_likelihood, correlation = eval_model(
-                model_path,
-                out_channels,
-                latent,
-                prior,
-                encoder_dict=encoder_dict,
-                decoder_dict=decoder_dict,
-                cut=False,
-                n_samples=samples,
-                flow=False,
-                dropout_prob=None,
-                grid_mean_predictor=neuron_position_info,
-                position_features=position_mlp,
-                behavior_in_encoder=None,
-            )
-
-            correlations.append(correlation)
+        correlations.append(correlation)
 
         if out_channels > 1:
             print("Log_likelihood", log_likelihood)

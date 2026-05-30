@@ -1,0 +1,12 @@
+torch>=2.0
+torchvision
+numpy
+scipy
+scikit-image
+matplotlib
+wandb
+tqdm
+optuna
+h5py
+datajoint>=2.0
+nnfabrik==0.2.1

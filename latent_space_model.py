@@ -539,7 +539,7 @@ def standard_trainer(
     set_random_seed(seed)
     model.train()
     if loss_function == "ZIGLoss" or loss_function == "combinedLoss":
-        if model.flow:
+        if getattr(model, 'flow', None):
             print(model.flow_base)
             if model.flow_base == "Gaussian":
                 zif_loss_instance = zero_inflated_losses.ZIFLoss()
@@ -563,7 +563,7 @@ def standard_trainer(
         per_neuron=False,
         avg=True,
         deeplake_ds=deeplake_ds,
-        flow=model.flow,
+        flow=getattr(model, 'flow', None),
         cell_coordinates=cell_coordinates if model.position_features else None,
     )
 
@@ -580,7 +580,6 @@ def standard_trainer(
         patience=scheduler_patience,
         threshold=tolerance,
         min_lr=min_lr,
-        verbose=verbose,
         threshold_mode="abs",
     )
 
@@ -651,14 +650,15 @@ def standard_trainer(
             batch_args = list(data)
 
             batch_kwargs = data._asdict() if not isinstance(data, dict) else data
-            loss = full_objective(
+            _result = full_objective(
                 model,
                 dataloaders["train"],
                 data_key,
                 *batch_args,
                 **batch_kwargs,
                 detach_core=detach_core,
-            )[0]
+            )
+            loss = _result[0] if isinstance(_result, tuple) else _result
             if loss_function == "combinedLoss":
                 loss = loss[0]
 
@@ -729,15 +729,14 @@ def standard_trainer(
             as_dict=False,
             per_neuron=False,
             deeplake_ds=deeplake_ds,
-            flow=model.flow,
+            flow=getattr(model, 'flow', None),
             cell_coordinates=cell_coordinates if model.position_features else None,
         )
 
         if save_checkpoints:
             if validation_correlation > best_validation_correlation:
                 torch.save(
-                    # model.state_dict(), f"{checkpoint_save_path}best.pth"
-                    {"model_state_dict": model.state_dict()},
+                    model.state_dict(),
                     "model.pth",
                 )
                 best_validation_correlation = validation_correlation
@@ -752,7 +751,7 @@ def standard_trainer(
                 detach_core=detach_core,
             )
         else:
-            if model.flow:
+            if getattr(model, 'flow', None):
                 val_loss, kl_div, log_det = full_objective(
                     model,
                     dataloaders["oracle"],
@@ -783,8 +782,8 @@ def standard_trainer(
         ema_values.append(validation_correlation)
         ema = calculate_ema(torch.tensor(ema_values), ema_span)[-1]
 
-        linear_layer = model.encoder.linear[data_key]
-        reg_term = linear_layer.weight.abs().sum()
+        linear_layer = model.encoder.linear[data_key] if model.latent else None
+        reg_term = linear_layer.weight.abs().sum() if linear_layer is not None else torch.tensor(0.0)
 
         if use_wandb:
             wandb_dict = {
@@ -792,37 +791,23 @@ def standard_trainer(
                 "Batch": batch_no_tot,
                 "Epoch": epoch,
                 "validation_correlation": validation_correlation,
-                # "log_det": log_det,
                 "Epoch validation loss": val_loss,
                 "EMA validation loss": ema,
-                # "Poisson Loss": pos_loss,
                 "ZIG Loss": val_loss,
-                "Epoch": epoch,
-                # "Theta First": theta_first,
-                # "Theta Last": theta_last,
                 "Theta Mean": torch.mean(theta),
-                # "Loc First": loc_first,
-                # "Loc Last": loc_last,
-                # "Loc Mean": torch.mean(loc),
-                # "K First": k_first,
-                # "K Last": k_last,
-                # "K Mean": torch.mean(k),
-                # "Q First": q_first,
-                # "Q Last": q_last,
                 "Q Mean": torch.mean(q),
                 "Learning rate": lr,
-                "kl_divergence": kl_div,
-                "latent_means": torch.mean(latent_means),
-                "latent_variance": latent_means.var(),
-                "latent_max": latent_means.max(),
-                "latent_min": latent_means.min(),
-                "latent_sigma": sigma_squared2,
-                # "latent_feature_q": torch.norm(latent_feature_q, dim = 0).mean(),
-                # "latent_feature_theta": torch.norm(latent_feature_theta, dim = 0).mean(),
                 "regularization term": reg_term,
-                # "log_likelihood": log_likelihood,
-                # "prior_correlation": validation_correlation_uncut,
             }
+            if model.latent:
+                wandb_dict.update({
+                    "kl_divergence": kl_div,
+                    "latent_means": torch.mean(latent_means),
+                    "latent_variance": latent_means.var(),
+                    "latent_max": latent_means.max(),
+                    "latent_min": latent_means.min(),
+                    "latent_sigma": sigma_squared2,
+                })
             wandb.log(wandb_dict)
 
             # for hyperparameter search
@@ -848,7 +833,7 @@ def standard_trainer(
         as_dict=False,
         per_neuron=False,
         deeplake_ds=deeplake_ds,
-        flow=model.flow,
+        flow=getattr(model, 'flow', None),
         cell_coordinates=cell_coordinates if model.position_features else None,
     )
     print(f"\n\n FINAL validation_correlation {validation_correlation} \n\n")
@@ -861,13 +846,13 @@ def standard_trainer(
         wandb.finish()
 
     # removing the checkpoints except the last one
-    # to_clean = os.listdir(checkpoint_save_path)
-    to_clean = os.listdir("toymodels")
-    for f2c in to_clean:
-        if "epoch" in f2c:
-            os.remove(os.path.join("toymodels", f2c))
+    if os.path.isdir(checkpoint_save_path):
+        to_clean = os.listdir(checkpoint_save_path)
+        for f2c in to_clean:
+            if "epoch" in f2c:
+                os.remove(os.path.join(checkpoint_save_path, f2c))
 
-    if model.encoder.elu:
+    if model.encoder.elu if model.latent else False:
         non_linearity = True
     else:
         non_linearity = False
